@@ -1,3 +1,4 @@
+import boto3
 import nltk
 import numpy as np
 import pandas as pd
@@ -7,6 +8,7 @@ from build_vocabulary import cut_non_task_words
 
 
 def main():
+    s3 = boto3.resource('s3')
     t0 = time.time()
 
     v = pd.read_csv('output/all_small.csv')
@@ -17,7 +19,10 @@ def main():
     t2 = time.time()
     print("Trim vocab: {}".format(t2 - t1))
 
-    postings = pd.read_csv('data/job_postings.csv')
+    BUCKET_NAME = 'tasksacrossspace'
+    KEY = 'job_postings.csv'
+    s3.Bucket(BUCKET_NAME).download_file(KEY, 'data/job_postings.csv')
+    postings = pd.read_csv('job_postings.csv')
     postings = postings[postings['ad_length'].between(20, 400, inclusive=True)]
     print(postings.shape)
     posting_ids = postings["posting_id"]
