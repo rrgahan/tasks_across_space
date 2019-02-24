@@ -22,12 +22,12 @@ def main():
     BUCKET_NAME = 'tasksacrossspace'
     KEY = 'job_postings.csv'
     s3.Bucket(BUCKET_NAME).download_file(KEY, 'data/job_postings.csv')
-    postings = pd.read_csv('job_postings.csv')
+    postings = pd.read_csv('data/job_postings.csv')
     postings = postings[postings['ad_length'].between(20, 400, inclusive=True)]
     print(postings.shape)
     posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
-    chunk_size = 500
+    chunk_size = 1000
     chunk_count = round(len(posting_ids.index) / chunk_size)
     posting_ids_splits = np.array_split(posting_ids, chunk_count)
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
