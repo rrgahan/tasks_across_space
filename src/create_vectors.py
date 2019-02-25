@@ -24,7 +24,7 @@ def main():
     t2 = time.time()
     print("Download file: {}".format(t2 - t1))
     postings = pd.read_csv('/tmp/job_postings.csv')
-    postings = postings[postings['ad_length'].between(20, 400, inclusive=True)]
+    postings = postings[postings['ad_length'].between(20, 300, inclusive=True)]
     print(postings.shape)
     posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
