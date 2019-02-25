@@ -104,8 +104,8 @@ def fill_df(df, defined_task_stems, tokenizer, stemmer):
 
 def trim_vocab(v):
     # Number of tasks to keep
-    threshold = 300
-    v = v.nsmallest(threshold, "count")
+    threshold = 500
+    v = v.nlargest(threshold, "count")
     v = v.dropna()
     v.reset_index(drop=True, inplace=True)
     return v
