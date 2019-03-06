@@ -1,5 +1,6 @@
 import boto3
 import nltk
+from multiprocessing import Process
 import numpy as np
 import pandas as pd
 import time
@@ -40,8 +41,16 @@ def main():
     stemmer = nltk.stem.PorterStemmer()
     defined_task_stems = [[stemmer.stem(t.split(' ')[0]), stemmer.stem(t.split(' ')[1])] for t in tasks]
 
+    procs = []
+
     for i in range(int(chunk_count)):
-        make_chunk(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i)
+        proc = Process(target = make_chunk, args=(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i,))
+        procs.append(proc)
+        proc.start()
+
+    for proc in procs:
+        proc.join()
+    # make_chunk(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i)
 
     tn = time.time()
     print("Total time: {}".format(tn - t0))
