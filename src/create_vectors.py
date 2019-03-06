@@ -20,15 +20,16 @@ def main():
 
     BUCKET_NAME = 'tasksacrossspace'
     KEY = 'job_postings.csv'
-    s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
+    # s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
     t2 = time.time()
     print("Download file: {}".format(t2 - t1))
-    postings = pd.read_csv('/tmp/job_postings.csv')
+    # postings = pd.read_csv('/tmp/job_postings.csv')
+    postings = pd.read_csv('data/job_postings.csv')
     postings = postings[postings['ad_length'].between(20, 300, inclusive=True)]
     print(postings.shape)
     posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
-    chunk_size = 1000
+    chunk_size = 50
     chunk_count = round(len(posting_ids.index) / chunk_size)
     posting_ids_splits = np.array_split(posting_ids, chunk_count)
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
@@ -40,18 +41,7 @@ def main():
     defined_task_stems = [[stemmer.stem(t.split(' ')[0]), stemmer.stem(t.split(' ')[1])] for t in tasks]
 
     for i in range(int(chunk_count)):
-        t3 = time.time()
-        print("Chunk {} out of {}".format(i, chunk_count - 1))
-        df = create_dummy_df(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names)
-        t4 = time.time()
-        print("Create dataframe: {}".format(t4 - t3))
-
-        df = fill_df(df, defined_task_stems, tokenizer, stemmer)
-        t5 = time.time()
-        print("Fill dataframe: {}".format(t5 - t4))
-
-        df.to_csv('/tmp/{}.csv'.format(i), sep=",")
-        s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors/{}.csv'.format(i))
+        make_chunk(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i)
 
     tn = time.time()
     print("Total time: {}".format(tn - t0))
@@ -101,6 +91,22 @@ def fill_df(df, defined_task_stems, tokenizer, stemmer):
         except TypeError:
             pass
     return df
+
+
+def make_chunk(vocabulary, posting_ids_split, posting_descs_split, col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i):
+    t3 = time.time()
+    print("Chunk {}".format(i,))
+    df = create_dummy_df(vocabulary, posting_ids_split, posting_descs_split, col_names)
+    t4 = time.time()
+    print("Create dataframe: {}".format(t4 - t3))
+
+    df = fill_df(df, defined_task_stems, tokenizer, stemmer)
+    t5 = time.time()
+    print("Fill dataframe: {}".format(t5 - t4))
+
+    df.to_csv('/output/vectors/{}.csv'.format(i), sep=",")
+    # s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors/{}.csv'.format(i))
+    return
 
 
 def trim_vocab(v):
