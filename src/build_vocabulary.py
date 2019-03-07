@@ -1,3 +1,4 @@
+import boto3
 import csv
 import nltk
 import pandas as pd
@@ -119,8 +120,12 @@ def get_relevant_phrases(descriptions):
 
 
 def read_all():
-    df = pd.read_csv('data/job_postings.csv')
-    return df['description']
+    s3 = boto3.resource('s3')
+    BUCKET_NAME = 'tasksacrossspace'
+    KEY = 'job_postings_large.csv'
+    s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
+    postings = pd.read_csv('/tmp/job_postings.csv')
+    return postings['description']
 
 
 def read_all_soc():
