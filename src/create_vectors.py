@@ -112,6 +112,7 @@ def make_chunk(vocabulary, posting_ids_split, posting_descs_split, col_names, de
     t5 = time.time()
     print("Fill dataframe: {}".format(t5 - t4))
 
+    df.to_csv('/tmp/{}.csv'.format(i), sep=",")
     s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors_large/{}.csv'.format(i))
     return
 
