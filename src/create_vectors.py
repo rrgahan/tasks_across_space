@@ -12,6 +12,7 @@ def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
 
+    # TODO: Run again for output
     v = pd.read_csv('output/all_small.csv')
     v.columns = ["task", "count"]
 
@@ -20,18 +21,17 @@ def main():
     print("Trim vocab: {}".format(t1 - t0))
 
     BUCKET_NAME = 'tasksacrossspace'
-    KEY = 'job_postings.csv'
-    # s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
+    KEY = 'job_postings_large.csv'
+    s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
     t2 = time.time()
     print("Download file: {}".format(t2 - t1))
-    # postings = pd.read_csv('/tmp/job_postings.csv')
-    postings = pd.read_csv('data/job_postings.csv')
+    postings = pd.read_csv('/tmp/job_postings.csv')
+    # TODO: Change ad_length cutoffs
     postings = postings[postings['ad_length'].between(20, 300, inclusive=True)]
     print(postings.shape)
     posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
-    chunk_size = 50
-    chunk_count = round(len(posting_ids.index) / chunk_size)
+    chunk_count = 6
     posting_ids_splits = np.array_split(posting_ids, chunk_count)
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
 
@@ -44,13 +44,12 @@ def main():
     procs = []
 
     for i in range(int(chunk_count)):
-        proc = Process(target = make_chunk, args=(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i,))
+        proc = Process(target=make_chunk, args=(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i,))
         procs.append(proc)
         proc.start()
 
     for proc in procs:
         proc.join()
-    # make_chunk(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i)
 
     tn = time.time()
     print("Total time: {}".format(tn - t0))
@@ -113,14 +112,13 @@ def make_chunk(vocabulary, posting_ids_split, posting_descs_split, col_names, de
     t5 = time.time()
     print("Fill dataframe: {}".format(t5 - t4))
 
-    df.to_csv('/output/vectors/{}.csv'.format(i), sep=",")
-    # s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors/{}.csv'.format(i))
+    s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors_large/{}.csv'.format(i))
     return
 
 
 def trim_vocab(v):
     # Number of tasks to keep
-    threshold = 500
+    threshold = 400
     v = v.nlargest(threshold, "count")
     v = v.dropna()
     v.reset_index(drop=True, inplace=True)
