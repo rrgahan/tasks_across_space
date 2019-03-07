@@ -13,10 +13,11 @@ class OrderedCounter(Counter, OrderedDict):
 
 
 def main():
+    s3 = boto3.resource('s3')
     t0 = time.time()
     tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
     t1 = time.time()
-    descriptions = read_all()
+    descriptions = read_all(s3)
     t2 = time.time()
     print("Get descriptions: {}".format(t2 - t1))
     # descriptions = read_all_soc()
@@ -37,9 +38,11 @@ def main():
     t6 = time.time()
     print("Get paris: {}".format(t6 - t5))
 
-    filename = 'output/all_small.csv'
+    filename = '/tmp/all_large.csv'
     t7 = time.time()
     write_set(pair_set, filename)
+    BUCKET_NAME = 'tasksacrossspace'
+    s3.meta.client.upload_file(filename, BUCKET_NAME, 'tasks_large.csv')
     tn = time.time()
     print("Write file: {}".format(tn - t7))
     print("Total time: {}".format(tn - t0))
@@ -119,8 +122,7 @@ def get_relevant_phrases(descriptions):
     return relevant_phrases
 
 
-def read_all():
-    s3 = boto3.resource('s3')
+def read_all(s3):
     BUCKET_NAME = 'tasksacrossspace'
     KEY = 'job_postings_large.csv'
     s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
