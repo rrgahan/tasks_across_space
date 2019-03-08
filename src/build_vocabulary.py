@@ -17,7 +17,7 @@ def main():
     t0 = time.time()
     tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
     t1 = time.time()
-    descriptions = read_all(s3)
+    descriptions = read_all()
     t2 = time.time()
     print("Get descriptions: {}".format(t2 - t1))
 
@@ -110,13 +110,9 @@ def get_relevant_phrases(descriptions):
     return relevant_phrases
 
 
-def read_all(s3):
-    BUCKET_NAME = 'tasksacrossspace'
-    KEY = 'job_postings_large.csv'
-    print('Getting file')
-    s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
+def read_all():
     print('file downloaded')
-    postings = pd.read_csv('/tmp/job_postings.csv')
+    postings = pd.read_csv('/data/job_postings.csv')
     return postings['description']
 
 
