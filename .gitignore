@@ -104,5 +104,6 @@ venv.bak/
 .mypy_cache/
 
 data/job_postings.csv
+data/job_postings_large.csv
 .DS_Store
 output/.DS_Store

@@ -112,7 +112,7 @@ def get_relevant_phrases(descriptions):
 
 def read_all():
     print('file downloaded')
-    postings = pd.read_csv('/data/job_postings.csv')
+    postings = pd.read_csv('data/job_postings_large.csv')
     return postings['description']
 
 
