@@ -23,9 +23,7 @@ def main():
     t1 = time.time()
     print("Trim vocab: {}".format(t1 - t0))
 
-    t2 = time.time()
-    print("Download file: {}".format(t2 - t1))
-    postings = pd.read_csv('/tmp/job_postings.csv')
+    postings = pd.read_csv('data/job_postings_large.csv')
     postings = postings[postings['ad_length'].between(11, 841, inclusive=True)]
     print(postings.shape)
     posting_ids = postings["posting_id"]
