@@ -26,14 +26,12 @@ def main():
     postings = pd.read_csv('data/job_postings_large.csv')
     postings = postings[postings['ad_length'].between(11, 841, inclusive=True)]
     print(postings.shape)
-    posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
     chunk_count = 7
-    posting_ids_splits = np.array_split(posting_ids, chunk_count)
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
 
     tasks = list(vocabulary["task"])
-    col_names = ["posting_id", "description"] + tasks
+    col_names = ["description"] + tasks
     tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
     stemmer = nltk.stem.PorterStemmer()
     defined_task_stems = [[stemmer.stem(t.split(' ')[0]), stemmer.stem(t.split(' ')[1])] for t in tasks]
@@ -41,7 +39,7 @@ def main():
     procs = []
 
     for i in range(int(chunk_count)):
-        proc = Process(target=make_chunk, args=(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i,))
+        proc = Process(target=make_chunk, args=(vocabulary, posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i,))
         procs.append(proc)
         proc.start()
 
@@ -54,9 +52,8 @@ def main():
     return
 
 
-def create_dummy_df(vocabulary, ids, descs, col_names):
+def create_dummy_df(vocabulary, descs, col_names):
     df = pd.DataFrame(columns=col_names)
-    df["posting_id"] = ids
     df["description"] = descs
 
     df.reset_index(drop=True, inplace=True)
@@ -98,10 +95,10 @@ def fill_df(df, defined_task_stems, tokenizer, stemmer):
     return df
 
 
-def make_chunk(vocabulary, posting_ids_split, posting_descs_split, col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i):
+def make_chunk(vocabulary, posting_descs_split, col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i):
     t3 = time.time()
     print("Chunk {}".format(i,))
-    df = create_dummy_df(vocabulary, posting_ids_split, posting_descs_split, col_names)
+    df = create_dummy_df(vocabulary, posting_descs_split, col_names)
     t4 = time.time()
     print("Create dataframe: {}".format(t4 - t3))
 
