@@ -20,13 +20,6 @@ def main():
     descriptions = read_all(s3)
     t2 = time.time()
     print("Get descriptions: {}".format(t2 - t1))
-    # descriptions = read_all_soc()
-    # descriptions = read_some()
-    # codes, descriptions = read_soc_defs()
-    # for i, description in enumerate(descriptions):
-    #     pair_set = generate_all_noun_pairs(description, tokenizer)
-    #     filename = 'output/soc/{}.csv'.format(codes[i])
-    #     write_set(pair_set, filename)
 
     t3 = time.time()
     phrases = get_relevant_phrases(descriptions)
@@ -36,7 +29,7 @@ def main():
     t5 = time.time()
     pair_set = generate_all_noun_pairs(phrases, tokenizer)
     t6 = time.time()
-    print("Get paris: {}".format(t6 - t5))
+    print("Get pairs: {}".format(t6 - t5))
 
     filename = '/tmp/all_large.csv'
     t7 = time.time()
@@ -66,9 +59,12 @@ def generate_all_noun_pairs(phrases, tokenizer):
     pair_set = {}
     # for index, description in descriptions.iteritems():
     for index, phrase in enumerate(phrases):
+        print("Phrase #{}".format(index))
         try:
             # Dict of verb/noun pairs found in individual descriptions. {stem: readable}
+            print("start cutting non task")
             only_noun_verb = cut_non_task_words(phrase, tokenizer)
+            print("end cutting non task")
 
             for (k, (word, tag)) in enumerate(only_noun_verb):
                 if tag == 'VERB':
@@ -98,64 +94,30 @@ def generate_all_noun_pairs(phrases, tokenizer):
 def get_relevant_phrases(descriptions):
     clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
     relevant_phrases = []
-    non_clue_descriptions = []
     for description in descriptions:
+        print('New description')
         try:
-            flag = True
             description = description.lower()
             for word in clue_words:
                 if word in description:
                     first_split = description.split(word, 1)[1]
                     second_split = first_split.split('.', 1)[0]
                     relevant_phrases.append(second_split)
-                    flag = False
                     break
 
-            if flag:
-                non_clue_descriptions.append(description)
         except AttributeError:
             pass
-    with open('non_clue_23-1011.txt', 'w') as f:
-        for item in non_clue_descriptions:
-            f.write("%s\n" % item)
-    print(len(relevant_phrases))
     return relevant_phrases
 
 
 def read_all(s3):
     BUCKET_NAME = 'tasksacrossspace'
     KEY = 'job_postings_large.csv'
+    print('Getting file')
     s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
+    print('file downloaded')
     postings = pd.read_csv('/tmp/job_postings.csv')
     return postings['description']
-
-
-def read_all_soc():
-    df = pd.read_csv('data/job_postings.csv')
-    onet_code = '23-1011.00'
-    df = df.loc[df['onet'] == onet_code]
-    print(df.shape)
-    descriptions = df['description']
-    descriptions.reset_index(drop=True, inplace=True)
-    return descriptions
-
-
-def read_some():
-    input_data = 'output/41-1011.00_desc.txt'
-    file = open(input_data, 'r')
-    descriptions = file.readlines()
-    descriptions = [s.strip('\n') for s in descriptions]
-    descriptions = list(filter(None, descriptions))
-    return descriptions
-
-
-def read_soc_defs():
-    df = pd.read_csv('data/soc_2018_definitions.csv')
-    df.dropna(how='any', inplace=True)
-    df.reset_index(drop=True, inplace=True)
-    codes = df['SOC Code']
-    descriptions = df['SOC Definition']
-    return codes, descriptions
 
 
 def write_set(dictionary, filename):
