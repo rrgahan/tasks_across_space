@@ -12,26 +12,25 @@ def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
 
-    # TODO: Run again for output
-    v = pd.read_csv('output/all_small.csv')
+    BUCKET_NAME = 'tasksacrossspace'
+    KEY = 'tasks_large.csv'
+    s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/tasks.csv')
+
+    v = pd.read_csv('/tmp/tasks.csv')
     v.columns = ["task", "count"]
 
     vocabulary = trim_vocab(v)
     t1 = time.time()
     print("Trim vocab: {}".format(t1 - t0))
 
-    BUCKET_NAME = 'tasksacrossspace'
-    KEY = 'job_postings_large.csv'
-    s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/job_postings.csv')
     t2 = time.time()
     print("Download file: {}".format(t2 - t1))
     postings = pd.read_csv('/tmp/job_postings.csv')
-    # TODO: Change ad_length cutoffs
-    postings = postings[postings['ad_length'].between(20, 300, inclusive=True)]
+    postings = postings[postings['ad_length'].between(11, 841, inclusive=True)]
     print(postings.shape)
     posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
-    chunk_count = 6
+    chunk_count = 7
     posting_ids_splits = np.array_split(posting_ids, chunk_count)
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
 
