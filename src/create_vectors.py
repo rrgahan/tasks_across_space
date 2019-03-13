@@ -33,7 +33,7 @@ def main():
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
 
     tasks = list(vocabulary["task"])
-    col_names = ["posting_id", "description"] + tasks
+    col_names = ["description"] + tasks
     tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
     stemmer = nltk.stem.PorterStemmer()
     defined_task_stems = [[stemmer.stem(t.split(' ')[0]), stemmer.stem(t.split(' ')[1])] for t in tasks]
