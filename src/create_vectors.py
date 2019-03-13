@@ -23,12 +23,12 @@ def main():
     t1 = time.time()
     print("Trim vocab: {}".format(t1 - t0))
 
-    postings = pd.read_csv('data/job_postings_large.csv')
+    postings = pd.read_csv('data/job_postings_large.csv', encoding='latin-1')
     postings = postings[postings['ad_length'].between(11, 841, inclusive=True)]
     print(postings.shape)
     posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
-    chunk_count = 2
+    chunk_count = 500
     posting_ids_splits = np.array_split(posting_ids, chunk_count)
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
 
