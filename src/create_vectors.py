@@ -28,7 +28,7 @@ def main():
     print(postings.shape)
     posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
-    chunk_count = 7
+    chunk_count = 2
     posting_ids_splits = np.array_split(posting_ids, chunk_count)
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
 
