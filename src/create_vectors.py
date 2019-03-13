@@ -38,15 +38,33 @@ def main():
     stemmer = nltk.stem.PorterStemmer()
     defined_task_stems = [[stemmer.stem(t.split(' ')[0]), stemmer.stem(t.split(' ')[1])] for t in tasks]
 
-    procs = []
+    multithread = False
 
-    for i in range(int(chunk_count)):
-        proc = Process(target=make_chunk, args=(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i,))
-        procs.append(proc)
-        proc.start()
+    if multithread:
+        procs = []
 
-    for proc in procs:
-        proc.join()
+        for i in range(int(chunk_count)):
+            proc = Process(target=make_chunk, args=(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i,))
+            procs.append(proc)
+            proc.start()
+
+        for proc in procs:
+            proc.join()
+
+    else:
+        for i in range(int(chunk_count)):
+            t3 = time.time()
+            print("Chunk {} out of {}".format(i, chunk_count - 1))
+            df = create_dummy_df(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names)
+            t4 = time.time()
+            print("Create dataframe: {}".format(t4 - t3))
+
+            df = fill_df(df, defined_task_stems, tokenizer, stemmer)
+            t5 = time.time()
+            print("Fill dataframe: {}".format(t5 - t4))
+
+            df.to_csv('/tmp/{}.csv'.format(i), sep=",")
+            s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors_large/{}.csv'.format(i))
 
     tn = time.time()
     print("Total time: {}".format(tn - t0))
