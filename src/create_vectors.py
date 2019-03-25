@@ -1,6 +1,5 @@
 import boto3
 import nltk
-from multiprocessing import Process
 import numpy as np
 import pandas as pd
 import time
@@ -13,10 +12,8 @@ def main():
     t0 = time.time()
 
     BUCKET_NAME = 'tasksacrossspace'
-    KEY = 'tasks_large.csv'
-    s3.Bucket(BUCKET_NAME).download_file(KEY, '/tmp/tasks.csv')
 
-    v = pd.read_csv('/tmp/tasks.csv')
+    v = pd.read_csv('data/tasks_large.csv')
     v.columns = ["task", "count"]
 
     vocabulary = trim_vocab(v)
@@ -28,7 +25,7 @@ def main():
     print(postings.shape)
     posting_ids = postings["posting_id"]
     posting_descs = postings["description"]
-    chunk_count = 500
+    chunk_count = 1000
     posting_ids_splits = np.array_split(posting_ids, chunk_count)
     posting_descs_splits = np.array_split(posting_descs, chunk_count)
 
@@ -38,33 +35,19 @@ def main():
     stemmer = nltk.stem.PorterStemmer()
     defined_task_stems = [[stemmer.stem(t.split(' ')[0]), stemmer.stem(t.split(' ')[1])] for t in tasks]
 
-    multithread = False
+    for i in range(int(chunk_count)):
+        t3 = time.time()
+        print("Chunk {} out of {}".format(i, chunk_count - 1))
+        df = create_dummy_df(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names)
+        t4 = time.time()
+        print("Create dataframe: {}".format(t4 - t3))
 
-    if multithread:
-        procs = []
+        df = fill_df(df, defined_task_stems, tokenizer, stemmer)
+        t5 = time.time()
+        print("Fill dataframe: {}".format(t5 - t4))
 
-        for i in range(int(chunk_count)):
-            proc = Process(target=make_chunk, args=(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i,))
-            procs.append(proc)
-            proc.start()
-
-        for proc in procs:
-            proc.join()
-
-    else:
-        for i in range(int(chunk_count)):
-            t3 = time.time()
-            print("Chunk {} out of {}".format(i, chunk_count - 1))
-            df = create_dummy_df(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names)
-            t4 = time.time()
-            print("Create dataframe: {}".format(t4 - t3))
-
-            df = fill_df(df, defined_task_stems, tokenizer, stemmer)
-            t5 = time.time()
-            print("Fill dataframe: {}".format(t5 - t4))
-
-            df.to_csv('/tmp/{}.csv'.format(i), sep=",")
-            s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors_large/{}.csv'.format(i))
+        df.to_csv('/tmp/{}.csv'.format(i), sep=",")
+        s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors_large/{}.csv'.format(i))
 
     tn = time.time()
     print("Total time: {}".format(tn - t0))
