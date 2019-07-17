@@ -8,7 +8,7 @@ def main():
     data = pd.read_csv('data/with_benefits.csv')
     descriptions = data.description
 
-    tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
+    tokenizer = nltk.tokenize.RegexpTokenizer('\w+|\$[\d\.]+|\S+')
 
     columns = ["wage", "starting_bonus", "retirement_plans", "insurance"]
     flag_df = pd.DataFrame(columns=columns)
@@ -23,7 +23,31 @@ def main():
 
 def find_wage(descriptions, tokenizer):
     pre_keywords = ["earn", "pay", "get"]
-    
+    for description in descriptions:
+        tokens = tokenizer.tokenize(description)
+        for i, token in enumerate(tokens):
+            if token in pre_keywords:
+                last_index = len(tokens) - 1 if i + 10 >= len(tokens) else i + 10
+                for j in range(i, last_index):
+                    if "$" in tokens[j]:
+                        dollar_range = len(tokens) - 1 if j + 4 >= len(tokens) else j + 4
+                        numbers = []
+                        for k in range(j + 1, dollar_range):
+                            if is_number(tokens[k]):
+                                numbers.append(tokens[k])
+                            elif "$" in tokens[k]:
+                                break
+                        wage = ""
+                        if len(numbers) == 1:
+                            wage = numbers[0]
+                        elif len(numbers) == 2:
+                            # This would be cents
+                            if len(numbers[1]) == 2:
+                                wage = "{}.{}".format(numbers[0], numbers[1])
+                            # This would be thousands
+                            if len(numbers[1]) == 3:
+                                wage = "{},{}".format(numbers[0], numbers[1])
+                        print(wage)
     return
 
 
@@ -66,7 +90,6 @@ def find_insurance(descriptions, tokenizer):
 
     for description in descriptions:
         flag = False
-        # TODO: Tokenize here to look for second
         tokens = tokenizer.tokenize(description)
         for i, token in enumerate(tokens):
             if token in insurance_keywords_first:
@@ -82,42 +105,12 @@ def find_insurance(descriptions, tokenizer):
     return flags
 
 
-def coauthor_keywords():
-    data = pd.read_csv('data/subset.csv')
-    descriptions = data.description
-    tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
-
-    keywords = ["hour", "week", "000", "500", "$"]
-
-    salary_words_list = []
-
-    for description in descriptions:
-        description_tokens = tokenizer.tokenize(description)
-
-        sa_ = [i for i, x in enumerate(description_tokens) if x in keywords]
-        sa_idx = sorted([x+1 for x in sa_[0:len(sa_)]] +
-                        [x+2 for x in sa_[0:len(sa_)]] +
-                        [x+3 for x in sa_[0:len(sa_)]] +
-                        [x+4 for x in sa_[0:len(sa_)]] +
-                        [x-1 for x in sa_[0:len(sa_)]] +
-                        [x-2 for x in sa_[0:len(sa_)]] + 
-                        [x-3 for x in sa_[0:len(sa_)]] +
-                        [x-4 for x in sa_[0:len(sa_)]] +
-                        [x-5 for x in sa_[0:len(sa_)]] +
-                        [x for x in sa_[0:len(sa_)]])
-        sa_idx = list(set(
-            [sa_idx[x] for x in range(0, len(sa_idx))
-                if sa_idx[x] < len(description_tokens)]))
-        salarywords = [
-            description_tokens[x] for x in [x for i, x in enumerate(sa_idx)
-                                            if sa_idx[i] >= 0]]
-
-        if len(salarywords):
-            salary_words_list.append(salarywords)
-
-    with open("output/salary.csv", "w") as f:
-        writer = csv.writer(f)
-        writer.writerows(salary_words_list)
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 
 if __name__ == "__main__":
