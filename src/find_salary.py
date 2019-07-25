@@ -69,33 +69,6 @@ def find_dollar(starting_index, tokens):
     return 0
 
 
-def find_amounts_and_frequency(amounts_starting_index, tokens):
-    amounts_ending_index = len(tokens) if amounts_starting_index + 4 >= len(tokens) else amounts_starting_index + 4
-    wage_index = 0
-    wages = []
-    frequency = ""
-    numbers = []
-    # Find near numbers
-    for i in range(amounts_starting_index, amounts_ending_index):
-        if is_number(tokens[i]):
-            numbers.append(tokens[i])
-            wage_index = i
-        elif "$" in tokens[i]:
-            break
-
-    if len(numbers) == 1:
-        wages.append(numbers[0])
-    elif len(numbers) == 2:
-        # This would be cents
-        if len(numbers[1]) == 2:
-            wages.append("{}.{}".format(numbers[0], numbers[1]))
-        # This would be thousands
-        if len(numbers[1]) == 3:
-            wages.append("{},{}".format(numbers[0], numbers[1]))
-
-    return
-
-
 # Will return index and amounts
 def find_amount(starting_index, tokens):
     ending_index = len(tokens) if starting_index + 4 >= len(tokens) else starting_index + 4
@@ -128,56 +101,6 @@ def find_frequency(starting_index, tokens, wage_frequency_keywords):
         if tokens[i] in wage_frequency_keywords:
             return tokens[i]
     return ""
-
-    # for description in descriptions:
-    #     wage_found = False
-    #     tokens = tokenizer.tokenize(description)
-    #     for i, token in enumerate(tokens):
-    #         if token in pre_keywords:
-    #             description_wages = []
-    #             last_index = len(tokens) - 1 if i + 10 >= len(tokens) else i + 10
-    #             for j in range(i, last_index):
-    #                 if "$" in tokens[j]:
-    #                     dollar_range = len(tokens) - 1 if j + 4 >= len(tokens) else j + 4
-    #                     numbers = []
-    #                     wage_index = 0
-    #                     for k in range(j + 1, dollar_range):
-    #                         if is_number(tokens[k]):
-    #                             numbers.append(tokens[k])
-    #                             wage_index = k
-    #                             wage_found = True
-    #                         elif "$" in tokens[k]:
-    #                             break
-    #                     if wage_found:
-    #                         wage = ""
-    #                         if len(numbers) == 1:
-    #                             wage = numbers[0]
-    #                         elif len(numbers) == 2:
-    #                             # This would be cents
-    #                             if len(numbers[1]) == 2:
-    #                                 wage = "{}.{}".format(numbers[0], numbers[1])
-    #                             # This would be thousands
-    #                             if len(numbers[1]) == 3:
-    #                                 wage = "{},{}".format(numbers[0], numbers[1])
-    #                         description_wages.append(wage)
-
-    #                         frequency_range = len(tokens) - 1 if wage_index + 4 >= len(tokens) else wage_index + 8
-    #                         freqency_found = False
-    #                         for l in range(wage_index + 1, frequency_range):
-    #                             if tokens[l] in payment_frequency_keywords:
-    #                                 wage_frequency.append(tokens[l])
-    #                                 freqency_found = True
-    #                                 break
-    #                         if not freqency_found:
-    #                             wage_frequency.append("")
-
-    #     if len(description_wages):
-    #         wage_amount.append(max(description_wages))
-    #     else:
-    #         wage_amount.append(None)
-    #         wage_frequency.append("")
-
-    # return (wage_amount, None)
 
 
 def find_starting_bonus(descriptions):
