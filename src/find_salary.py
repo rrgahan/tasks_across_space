@@ -5,7 +5,7 @@ import pandas as pd
 
 
 def main():
-    data = pd.read_csv('data/with_benefits.csv')
+    data = pd.read_csv('data/subset.csv')
     descriptions = data.description
 
     tokenizer = nltk.tokenize.RegexpTokenizer('\w+|\$[\d\.]+|\S+')
@@ -19,12 +19,13 @@ def main():
     flag_df.starting_bonus = find_starting_bonus(descriptions)
     flag_df.retirement_plans = find_retirement_plans(descriptions)
     flag_df.insurance = find_insurance(descriptions, tokenizer)
+    flag_df.to_csv("salary_preliminary.csv")
     print(flag_df)
 
 
 def find_wage(descriptions, tokenizer):
     pre_keywords = ["earn", "pay", "get"]
-    wage_frequency_keywords = ["weekend", "weekly", "week", "hourly", "hour", "yearly", "yearly", "salary"]
+    wage_frequency_keywords = ["weekend", "weekly", "week", "hourly", "hour", "yearly", "year", "salary", "annual", "annually"]
 
     wage_amount = []
     wage_frequency = []
@@ -61,17 +62,9 @@ def find_wage(descriptions, tokenizer):
     return (wage_amount, wage_frequency)
 
 
-def find_dollar(starting_index, tokens):
-    ending_index = len(tokens) if starting_index + 10 >= len(tokens) else starting_index + 10
-    for i in range(starting_index, ending_index):
-        if "$" in tokens[i]:
-            return i
-    return 0
-
-
 # Will return index and amounts
 def find_amount(starting_index, tokens):
-    ending_index = len(tokens) if starting_index + 4 >= len(tokens) else starting_index + 4
+    ending_index = len(tokens) if starting_index + 6 >= len(tokens) else starting_index + 6
     wage_index = 0
     wage = ""
     numbers = []
@@ -80,6 +73,8 @@ def find_amount(starting_index, tokens):
         if is_number(tokens[i]):
             numbers.append(tokens[i])
             wage_index = i
+        elif tokens[i].lower() == "k":
+            numbers.append("000")
         elif "$" in tokens[i]:
             break
 
@@ -133,6 +128,8 @@ def find_retirement_plans(descriptions):
     return flags
 
 
+# TODO: Look for list of first keywords
+# Look at #39, see if we can fix that problem
 def find_insurance(descriptions, tokenizer):
     insurance_keywords_first = ["health", "dental", "vision", "medical", "medi_cal", "health_care"]
     insurance_keywords_second = ["coverage", "insurance", "benefits"]
@@ -149,6 +146,12 @@ def find_insurance(descriptions, tokenizer):
                 if tokens[next_index] in insurance_keywords_second:
                     flag = True
                     break
+                else:
+                    max_search_index = next_index + 4
+                    for j in range(next_index, max_search_index):
+                        if tokens[j] in insurance_keywords_first:
+                            flag = True
+                            break
             if token in insurance_keywords_combined:
                 flag = True
                 break
