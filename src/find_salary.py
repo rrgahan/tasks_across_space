@@ -5,26 +5,27 @@ import pandas as pd
 
 
 def main():
-    data = pd.read_csv('data/subset.csv')
+    data = pd.read_csv('data/job_postings_large.csv')
     descriptions = data.description
 
     tokenizer = nltk.tokenize.RegexpTokenizer('\w+|\$[\d\.]+|\S+')
 
-    columns = ["wage_amount", "wage_frequency", "starting_bonus", "retirement_plans", "insurance"]
+    columns = ["posting_id", "wage_amount", "wage_frequency", "starting_bonus", "retirement_plans", "insurance"]
     flag_df = pd.DataFrame(columns=columns)
 
+    flag_df.posting_id = data["posting_id"]
     (wage_amount, wage_frequency) = find_wage(descriptions, tokenizer)
     flag_df.wage_amount = wage_amount
     flag_df.wage_frequency = wage_frequency
     flag_df.starting_bonus = find_starting_bonus(descriptions)
     flag_df.retirement_plans = find_retirement_plans(descriptions)
     flag_df.insurance = find_insurance(descriptions, tokenizer)
-    flag_df.to_csv("salary_preliminary.csv")
+    flag_df.to_csv("output/salary_subset.csv", index=False)
     print(flag_df)
 
 
 def find_wage(descriptions, tokenizer):
-    pre_keywords = ["earn", "pay", "get"]
+    pre_keywords = ["earn", "pay", "get", "salary", "earned", "paid", "got", "rate", "rates"]
     wage_frequency_keywords = ["weekend", "weekly", "week", "hourly", "hour", "yearly", "year", "salary", "annual", "annually"]
 
     wage_amount = []
@@ -128,8 +129,6 @@ def find_retirement_plans(descriptions):
     return flags
 
 
-# TODO: Look for list of first keywords
-# Look at #39, see if we can fix that problem
 def find_insurance(descriptions, tokenizer):
     insurance_keywords_first = ["health", "dental", "vision", "medical", "medi_cal", "health_care"]
     insurance_keywords_second = ["coverage", "insurance", "benefits"]
@@ -147,7 +146,7 @@ def find_insurance(descriptions, tokenizer):
                     flag = True
                     break
                 else:
-                    max_search_index = next_index + 4
+                    max_search_index = len(tokens) if next_index + 4 >= len(tokens) else next_index + 4
                     for j in range(next_index, max_search_index):
                         if tokens[j] in insurance_keywords_first:
                             flag = True
