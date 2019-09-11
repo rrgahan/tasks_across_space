@@ -58,6 +58,7 @@ def generate_all_noun_pairs(phrases, tokenizer):
     stemmer = nltk.stem.PorterStemmer()
     pair_set = {}
     # for index, description in descriptions.iteritems():
+    # TODO: Make concurrent
     for index, phrase in enumerate(phrases):
         print("Phrase #{}".format(index))
         try:
@@ -94,6 +95,7 @@ def generate_all_noun_pairs(phrases, tokenizer):
 def get_relevant_phrases(descriptions):
     clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
     relevant_phrases = []
+    # TODO: Make concurrent
     for description in descriptions:
         print('New description')
         try:
