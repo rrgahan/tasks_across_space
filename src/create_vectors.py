@@ -1,53 +1,63 @@
 import boto3
+import csv
 import nltk
 import numpy as np
 import pandas as pd
 import time
+
+from bitarray import bitarray
 
 from build_vocabulary import cut_non_task_words
 
 
 def main():
     s3 = boto3.resource('s3')
-    t0 = time.time()
-
     BUCKET_NAME = 'tasksacrossspace'
 
-    v = pd.read_csv('data/tasks_large.csv')
-    v.columns = ["task", "count"]
+    tasks_csv = pd.read_csv('data/tasks_large.csv')
+    tasks_csv.columns = ["task", "count"]
 
-    vocabulary = trim_vocab(v)
+    stemmer = nltk.stem.PorterStemmer()
+    tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
+
+    t0 = time.time()
+    tasks = prepare_tasks(tasks_csv, stemmer)
+    del tasks_csv
     t1 = time.time()
-    print("Trim vocab: {}".format(t1 - t0))
+    print("Prepare tasks: {}".format(t1 - t0))
 
     postings = pd.read_csv('data/job_postings_large.csv', encoding='latin-1')
-    postings = postings[postings['ad_length'].between(11, 841, inclusive=True)]
-    print(postings.shape)
-    posting_ids = postings["posting_id"]
-    posting_descs = postings["description"]
-    chunk_count = 1000
-    posting_ids_splits = np.array_split(posting_ids, chunk_count)
-    posting_descs_splits = np.array_split(posting_descs, chunk_count)
+    postings = postings[postings['ad_length'].between(11, 841, inclusive=True)].reset_index(drop=True)
+    postings_ids = postings["posting_id"]
+    postings_descriptions = postings["description"]
+    del postings
+    t2 = time.time()
+    print("Load data: {}".format(t2 - t1))
 
-    tasks = list(vocabulary["task"])
-    col_names = ["description"] + tasks
-    tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
-    stemmer = nltk.stem.PorterStemmer()
-    defined_task_stems = [[stemmer.stem(t.split(' ')[0]), stemmer.stem(t.split(' ')[1])] for t in tasks]
+    binaries = {}
+    i = 0
+    for i in range(len(postings_ids)):
+        description = postings_descriptions[i]
+        post_id = postings_ids[i]
+        binary = generate_binary(description, tasks, tokenizer, stemmer)
+        binaries[post_id] = binary.to01()
+        i += 1
+        if (i > 50):
+            break
 
-    for i in range(int(chunk_count)):
-        t3 = time.time()
-        print("Chunk {} out of {}".format(i, chunk_count - 1))
-        df = create_dummy_df(vocabulary, posting_ids_splits[i], posting_descs_splits[i], col_names)
-        t4 = time.time()
-        print("Create dataframe: {}".format(t4 - t3))
+    print(binaries)
 
-        df = fill_df(df, defined_task_stems, tokenizer, stemmer)
-        t5 = time.time()
-        print("Fill dataframe: {}".format(t5 - t4))
+    with open('output/tasks_used.csv', 'w') as f:
+        wr = csv.writer(f, quoting=csv.QUOTE_ALL)
+        wr.writerow(tasks)
 
-        df.to_csv('/tmp/{}.csv'.format(i), sep=",")
-        s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors_large/{}.csv'.format(i))
+    with open('output/binary_test.csv', 'w') as f:
+        for key in binaries.keys():
+            f.write("%s,%s\n" % (key, binaries[key]))
+
+    # This will probably take up too much memory if we don't chunk
+    # df.to_csv('/tmp/output.csv', sep=",")
+    # s3.meta.client.upload_file('/tmp/output.csv', BUCKET_NAME, 'vectors_large/output.csv')
 
     tn = time.time()
     print("Total time: {}".format(tn - t0))
@@ -55,25 +65,27 @@ def main():
     return
 
 
-def create_dummy_df(vocabulary, ids, descs, col_names):
-    df = pd.DataFrame(columns=col_names)
-    df["posting_id"] = ids
-    df["description"] = descs
+def generate_binary(description, tasks, tokenizer, stemmer):
+    word_tag_pairs = cut_non_task_words(description, tokenizer)
+    possible_tasks = create_possible_tasks(word_tag_pairs, stemmer)
+    binary = bitarray()
+    for task in tasks:
+        if task in possible_tasks:
+            binary.append(True)
+        else:
+            binary.append(False)
+    return binary
 
-    df.reset_index(drop=True, inplace=True)
 
-    return df
-
-
-def create_possible_tasks(stems):
+def create_possible_tasks(word_tag_pairs, stemmer):
     tasks = []
-    for (k, (word, tag)) in enumerate(stems):
+    for (k, (word, tag)) in enumerate(word_tag_pairs):
         if tag == 'VERB':
             next_index = k + 1
-            while next_index < len(stems) - 1:
-                next_tuple = stems[next_index]
-                if next_tuple[1] == 'NOUN':
-                    tasks.append(word + ' ' + next_tuple[0])
+            while next_index < len(word_tag_pairs) - 1:
+                next_pair = word_tag_pairs[next_index]
+                if next_pair[1] == 'NOUN':
+                    tasks.append(stemmer.stem(word) + ' ' + stemmer.stem(next_pair[0]))
                     break
                 else:
                     next_index += 1
@@ -81,47 +93,12 @@ def create_possible_tasks(stems):
     return tasks
 
 
-def fill_df(df, defined_task_stems, tokenizer, stemmer):
-    for index, row in df.iterrows():
-        print("Description #{}".format(index))
-        try:
-            tuples = cut_non_task_words(row["description"], tokenizer)
-            stems = [[stemmer.stem(t[0]), t[1]] for t in tuples]
-            possible_tasks = create_possible_tasks(stems)
-            for col, defined_stem in enumerate(defined_task_stems):
-                combined = defined_stem[0] + " " + defined_stem[1]
-                if combined in possible_tasks:
-                    df.iloc[index, col + 2] = 1
-                else:
-                    df.iloc[index, col + 2] = 0
-        except TypeError:
-            pass
-    return df
-
-
-def make_chunk(vocabulary, posting_ids_split, posting_descs_split, col_names, defined_task_stems, tokenizer, stemmer, BUCKET_NAME, s3, i):
-    t3 = time.time()
-    print("Chunk {}".format(i,))
-    df = create_dummy_df(vocabulary, posting_ids_split, posting_descs_split, col_names)
-    t4 = time.time()
-    print("Create dataframe: {}".format(t4 - t3))
-
-    df = fill_df(df, defined_task_stems, tokenizer, stemmer)
-    t5 = time.time()
-    print("Fill dataframe: {}".format(t5 - t4))
-
-    df.to_csv('/tmp/{}.csv'.format(i), sep=",")
-    s3.meta.client.upload_file('/tmp/{}.csv'.format(i), BUCKET_NAME, 'vectors_large/{}.csv'.format(i))
-    return
-
-
-def trim_vocab(v):
+def prepare_tasks(tasks_csv, stemmer):
     # Number of tasks to keep
-    threshold = 400
-    v = v.nlargest(threshold, "count")
-    v = v.dropna()
-    v.reset_index(drop=True, inplace=True)
-    return v
+    threshold = 1000
+    tasks_list = list(tasks_csv.nlargest(threshold, "count").dropna().reset_index(drop=True)['task'])
+    defined_task_stems = [stemmer.stem(t.split(' ')[0]) + ' ' + stemmer.stem(t.split(' ')[1]) for t in tasks_list]
+    return defined_task_stems
 
 
 if __name__ == "__main__":
