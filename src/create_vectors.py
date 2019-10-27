@@ -4,11 +4,16 @@ import nltk
 import numpy as np
 import pandas as pd
 import time
+import concurrent.futures
 
 from bitarray import bitarray
 
 from build_vocabulary import cut_non_task_words
 
+
+stemmer = nltk.stem.PorterStemmer()
+tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
+tasks = list()
 
 def main():
     s3 = boto3.resource('s3')
@@ -17,16 +22,14 @@ def main():
     tasks_csv = pd.read_csv('data/tasks_large.csv')
     tasks_csv.columns = ["task", "count"]
 
-    stemmer = nltk.stem.PorterStemmer()
-    tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
-
     t0 = time.time()
-    tasks = prepare_tasks(tasks_csv, stemmer)
+    tasks.extend(prepare_tasks(tasks_csv))
     del tasks_csv
     t1 = time.time()
     print("Prepare tasks: {}".format(t1 - t0))
 
-    postings = pd.read_csv('data/job_postings_large.csv', encoding='latin-1')
+    postings = pd.read_csv('data/subset.csv', encoding='latin-1')
+    # TODO: Get min/max ad length values
     postings = postings[postings['ad_length'].between(11, 841, inclusive=True)].reset_index(drop=True)
     postings_ids = postings["posting_id"]
     postings_descriptions = postings["description"]
@@ -35,17 +38,9 @@ def main():
     print("Load data: {}".format(t2 - t1))
 
     binaries = {}
-    i = 0
-    for i in range(len(postings_ids)):
-        description = postings_descriptions[i]
-        post_id = postings_ids[i]
-        binary = generate_binary(description, tasks, tokenizer, stemmer)
-        binaries[post_id] = binary.to01()
-        i += 1
-        if (i > 50):
-            break
-
-    print(binaries)
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        for posting_id, binary in zip(postings_ids, executor.map(generate_binary, postings_descriptions)):
+            binaries[posting_id] = binary.to01()
 
     with open('output/tasks_used.csv', 'w') as f:
         wr = csv.writer(f, quoting=csv.QUOTE_ALL)
@@ -64,10 +59,9 @@ def main():
 
     return
 
-
-def generate_binary(description, tasks, tokenizer, stemmer):
+def generate_binary(description):
     word_tag_pairs = cut_non_task_words(description, tokenizer)
-    possible_tasks = create_possible_tasks(word_tag_pairs, stemmer)
+    possible_tasks = create_possible_tasks(word_tag_pairs)
     binary = bitarray()
     for task in tasks:
         if task in possible_tasks:
@@ -77,23 +71,23 @@ def generate_binary(description, tasks, tokenizer, stemmer):
     return binary
 
 
-def create_possible_tasks(word_tag_pairs, stemmer):
-    tasks = []
+def create_possible_tasks(word_tag_pairs):
+    possible_tasks = []
     for (k, (word, tag)) in enumerate(word_tag_pairs):
         if tag == 'VERB':
             next_index = k + 1
             while next_index < len(word_tag_pairs) - 1:
                 next_pair = word_tag_pairs[next_index]
                 if next_pair[1] == 'NOUN':
-                    tasks.append(stemmer.stem(word) + ' ' + stemmer.stem(next_pair[0]))
+                    possible_tasks.append(stemmer.stem(word) + ' ' + stemmer.stem(next_pair[0]))
                     break
                 else:
                     next_index += 1
 
-    return tasks
+    return possible_tasks
 
 
-def prepare_tasks(tasks_csv, stemmer):
+def prepare_tasks(tasks_csv):
     # Number of tasks to keep
     threshold = 1000
     tasks_list = list(tasks_csv.nlargest(threshold, "count").dropna().reset_index(drop=True)['task'])
