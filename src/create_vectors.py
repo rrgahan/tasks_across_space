@@ -37,7 +37,6 @@ def main():
     t2 = time.time()
     print("Load data: {}".format(t2 - t1))
 
-    # TODO: Chunk
     with concurrent.futures.ProcessPoolExecutor() as executor:
         for posting_id, binary in zip(postings_ids, executor.map(generate_binary, postings_descriptions)):
             # TODO: Make sure this file exists on server to write to
