@@ -12,7 +12,6 @@ from build_vocabulary import cut_non_task_words
 
 
 stemmer = nltk.stem.PorterStemmer()
-tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
 tasks = list()
 
 def main():
@@ -54,7 +53,7 @@ def main():
     return
 
 def generate_binary(description):
-    word_tag_pairs = cut_non_task_words(description, tokenizer)
+    word_tag_pairs = cut_non_task_words(description)
     possible_tasks = create_possible_tasks(word_tag_pairs)
     binary = bitarray()
     for task in tasks:
