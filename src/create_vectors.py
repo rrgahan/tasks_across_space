@@ -37,22 +37,21 @@ def main():
     t2 = time.time()
     print("Load data: {}".format(t2 - t1))
 
-    binaries = {}
+    # TODO: Chunk
     with concurrent.futures.ProcessPoolExecutor() as executor:
         for posting_id, binary in zip(postings_ids, executor.map(generate_binary, postings_descriptions)):
-            binaries[posting_id] = binary.to01()
+            # TODO: Make sure this file exists on server to write to
+            with open('output/binaries.csv', 'a') as f:
+                f.write("%s,%s\n" % (posting_id, binary.to01()))
+                f.close()
 
     with open('output/tasks_used.csv', 'w') as f:
         wr = csv.writer(f, quoting=csv.QUOTE_ALL)
         wr.writerow(tasks)
 
-    with open('output/binary_test.csv', 'w') as f:
-        for key in binaries.keys():
-            f.write("%s,%s\n" % (key, binaries[key]))
-
-    # This will probably take up too much memory if we don't chunk
-    # df.to_csv('/tmp/output.csv', sep=",")
-    # s3.meta.client.upload_file('/tmp/output.csv', BUCKET_NAME, 'vectors_large/output.csv')
+    # TODO: Make sure these buckets exists in S3
+    # s3.meta.client.upload_file('output/binaries.csv', BUCKET_NAME, 'vectors_binary/output.csv')
+    # s3.meta.client.upload_file('output/tasks_used.csv', BUCKET_NAME, 'vectors_binary/tasks_used.csv')
 
     tn = time.time()
     print("Total time: {}".format(tn - t0))
