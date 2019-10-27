@@ -8,43 +8,37 @@ from collections import Counter, OrderedDict
 from nltk.tag import map_tag
 
 
+tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
+
 def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
-    tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
-    t1 = time.time()
-    descriptions = read_all()
-    t2 = time.time()
-    print("Get descriptions: {}".format(t2 - t1))
+    postings = pd.read_csv('data/job_postings_large.csv', encoding='latin-1')
+    descriptions = postings['description']
+    del postings
+    print("Get descriptions done")
 
-    t3 = time.time()
     phrases = get_relevant_phrases(descriptions)
     del descriptions
-    t4 = time.time()
-    print("Get phrases: {}".format(t4 - t3))
+    print("Get phrases done")
 
-    t5 = time.time()
-    pair_set = generate_all_noun_pairs(phrases, tokenizer)
+    pair_set = generate_all_noun_pairs(phrases)
     del phrases
-    t6 = time.time()
-    print("Get pairs: {}".format(t6 - t5))
+    print("Get pairs done")
 
-    t7 = time.time()
-    
-    filename = '/tmp/all_large.csv'
+    filename = 'output/large_tasks_test.csv'
     with open(filename, 'w') as f:
         writer = csv.writer(f)
         for key, value in pair_set.items():
             writer.writerow([value['readable'], value['count']])
 
     BUCKET_NAME = 'tasksacrossspace'
-    s3.meta.client.upload_file(filename, BUCKET_NAME, 'tasks_five_percent.csv')
+    # s3.meta.client.upload_file(filename, BUCKET_NAME, 'tasks_five_percent.csv')
     tn = time.time()
-    print("Write file: {}".format(tn - t7))
     print("Total time: {}".format(tn - t0))
 
 
-def cut_non_task_words(phrases, tokenizer):
+def cut_non_task_words(phrases):
     description_token = tokenizer.tokenize(phrases)
     tagged = nltk.pos_tag(description_token)
     # Turn description into simplified tags (noun, verb, adjective, etc)
@@ -57,18 +51,15 @@ def cut_non_task_words(phrases, tokenizer):
     return only_noun_verb
 
 
-def generate_all_noun_pairs(phrases, tokenizer):
+def generate_all_noun_pairs(phrases):
     stemmer = nltk.stem.PorterStemmer()
     pair_set = {}
-    # for index, description in descriptions.iteritems():
     # TODO: Make concurrent
     for index, phrase in enumerate(phrases):
-        print("Phrase #{}".format(index))
+        print("Phrase #{} of {}".format(index, len(phrases)))
         try:
             # Dict of verb/noun pairs found in individual descriptions. {stem: readable}
-            print("start cutting non task")
-            only_noun_verb = cut_non_task_words(phrase, tokenizer)
-            print("end cutting non task")
+            only_noun_verb = cut_non_task_words(phrase)
 
             for (k, (word, tag)) in enumerate(only_noun_verb):
                 if tag == 'VERB':
@@ -100,7 +91,6 @@ def get_relevant_phrases(descriptions):
     relevant_phrases = []
     # TODO: Make concurrent
     for description in descriptions:
-        print('New description')
         try:
             description = description.lower()
             for word in clue_words:
@@ -113,16 +103,6 @@ def get_relevant_phrases(descriptions):
         except AttributeError:
             pass
     return relevant_phrases
-
-
-def read_all():
-    print('file downloaded')
-    postings = pd.read_csv('data/job_postings_large.csv')
-    return postings['description']
-
-
-def write_set(dictionary, filename):
-    filename = ''
 
 
 if __name__ == "__main__":
