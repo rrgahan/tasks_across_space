@@ -44,10 +44,6 @@ def main():
                 f.write("%s,%s\n" % (posting_id, binary.to01()))
                 f.close()
 
-    with open('output/tasks_used.csv', 'w') as f:
-        wr = csv.writer(f, quoting=csv.QUOTE_ALL)
-        wr.writerow(tasks)
-
     # TODO: Make sure these buckets exists in S3
     # s3.meta.client.upload_file('output/binaries.csv', BUCKET_NAME, 'vectors_binary/output.csv')
     # s3.meta.client.upload_file('output/tasks_used.csv', BUCKET_NAME, 'vectors_binary/tasks_used.csv')
@@ -89,6 +85,9 @@ def prepare_tasks(tasks_csv):
     # Number of tasks to keep
     threshold = 1000
     tasks_list = list(tasks_csv.nlargest(threshold, "count").dropna().reset_index(drop=True)['task'])
+    with open('output/tasks_used.csv', 'w') as f:
+        wr = csv.writer(f, quoting=csv.QUOTE_ALL)
+        wr.writerow(tasks_list)
     defined_task_stems = [stemmer.stem(t.split(' ')[0]) + ' ' + stemmer.stem(t.split(' ')[1]) for t in tasks_list]
     return defined_task_stems
 
