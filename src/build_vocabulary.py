@@ -8,10 +8,6 @@ from collections import Counter, OrderedDict
 from nltk.tag import map_tag
 
 
-class OrderedCounter(Counter, OrderedDict):
-    pass
-
-
 def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
@@ -23,19 +19,26 @@ def main():
 
     t3 = time.time()
     phrases = get_relevant_phrases(descriptions)
+    del descriptions
     t4 = time.time()
     print("Get phrases: {}".format(t4 - t3))
 
     t5 = time.time()
     pair_set = generate_all_noun_pairs(phrases, tokenizer)
+    del phrases
     t6 = time.time()
     print("Get pairs: {}".format(t6 - t5))
 
-    filename = '/tmp/all_large.csv'
     t7 = time.time()
-    write_set(pair_set, filename)
+    
+    filename = '/tmp/all_large.csv'
+    with open(filename, 'w') as f:
+        writer = csv.writer(f)
+        for key, value in pair_set.items():
+            writer.writerow([value['readable'], value['count']])
+
     BUCKET_NAME = 'tasksacrossspace'
-    s3.meta.client.upload_file(filename, BUCKET_NAME, 'tasks_large.csv')
+    s3.meta.client.upload_file(filename, BUCKET_NAME, 'tasks_five_percent.csv')
     tn = time.time()
     print("Write file: {}".format(tn - t7))
     print("Total time: {}".format(tn - t0))
@@ -119,10 +122,7 @@ def read_all():
 
 
 def write_set(dictionary, filename):
-    with open(filename, 'w') as f:
-        writer = csv.writer(f)
-        for key, value in dictionary.items():
-            writer.writerow([value['readable'], value['count']])
+    filename = ''
 
 
 if __name__ == "__main__":
