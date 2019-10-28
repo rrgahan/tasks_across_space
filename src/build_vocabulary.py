@@ -3,12 +3,14 @@ import csv
 import nltk
 import pandas as pd
 import time
+import concurrent.futures
 
 from collections import Counter, OrderedDict
 from nltk.tag import map_tag
 
 
 tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
+clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
 
 def main():
     s3 = boto3.resource('s3')
@@ -18,9 +20,13 @@ def main():
     del postings
     print("Get descriptions done")
 
-    phrases = get_relevant_phrases(descriptions)
-    del descriptions
+    phrases = []
     print("Get phrases done")
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        for phrase in executor.map(get_relevant_phrases, descriptions):
+            phrases.append(phrase)
+
+    del descriptions
 
     pair_set = generate_all_noun_pairs(phrases)
     del phrases
@@ -86,23 +92,20 @@ def generate_all_noun_pairs(phrases):
 
 # For building the vocabulary, we only want to get tasks from a very specific part of the posting.
 # Here, we cut out text not in a sentence that includes a clue word.
-def get_relevant_phrases(descriptions):
-    clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
+def get_relevant_phrases(description):
     relevant_phrases = []
-    # TODO: Make concurrent
-    for description in descriptions:
-        try:
-            description = description.lower()
-            for word in clue_words:
-                if word in description:
-                    first_split = description.split(word, 1)[1]
-                    second_split = first_split.split('.', 1)[0]
-                    relevant_phrases.append(second_split)
-                    break
+    try:
+        description = description.lower()
+        for word in clue_words:
+            if word in description:
+                first_split = description.split(word, 1)[1]
+                second_split = first_split.split('.', 1)[0]
+                relevant_phrases.append(second_split)
+                break
+        return relevant_phrases
 
-        except AttributeError:
-            pass
-    return relevant_phrases
+    except AttributeError:
+        pass
 
 
 if __name__ == "__main__":
