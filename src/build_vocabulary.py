@@ -1,6 +1,7 @@
 import boto3
 import csv
 import nltk
+import os
 import pandas as pd
 import time
 import concurrent.futures
@@ -15,18 +16,23 @@ clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
 def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
-    postings = pd.read_csv('data/job_postings_large.csv', encoding='latin-1')
+    postings = pd.read_csv('data/clean_esmi_0.csv', encoding='latin-1', sep="\t")
+    for tsv in os.listdir("data/clean_esmi/"):
+        if tsv.endswith(".tsv"):
+            print(f"data/clean_esmi/{tsv}")
+            postings.append(pd.read_csv(f"data/clean_esmi/{tsv}", encoding="latin-1", sep="\t"))
+
     descriptions = postings['description']
     del postings
     print("Get descriptions done")
 
     phrases = []
-    print("Get phrases done")
     with concurrent.futures.ProcessPoolExecutor() as executor:
         for phrase in executor.map(get_relevant_phrases, descriptions):
             phrases.append(phrase)
 
     del descriptions
+    print("Get phrases done")
 
     pair_set = generate_all_noun_pairs(phrases)
     del phrases
