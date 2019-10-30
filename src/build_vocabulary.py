@@ -16,11 +16,19 @@ clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
 def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
-    postings = pd.read_csv('data/clean_esmi_0.csv', encoding='latin-1', sep="\t")
+    postings = pd.read_csv('data/subset.csv', encoding='latin-1')
+    postings = pd.read_csv('data/esmi_cleaned_0.tsv', encoding='latin-1', sep="\t")
+    fail_count = 0
     for tsv in os.listdir("data/clean_esmi/"):
         if tsv.endswith(".tsv"):
             print(f"data/clean_esmi/{tsv}")
-            postings.append(pd.read_csv(f"data/clean_esmi/{tsv}", encoding="latin-1", sep="\t"))
+            try:
+                postings.append(pd.read_csv(f"data/clean_esmi/{tsv}", encoding="latin-1", sep="\t"))
+            except pd.errors.ParserError:
+                fail_count += 1
+                print("ABOVE FILE FAILED FAILED")
+
+    print(f"{fail_count} files failed ({fail_count / 2335 * 100}%)")
 
     descriptions = postings['description']
     del postings
@@ -38,7 +46,7 @@ def main():
     del phrases
     print("Get pairs done")
 
-    filename = 'output/large_tasks_test.csv'
+    filename = 'output/esmi_tasks.csv'
     with open(filename, 'w') as f:
         writer = csv.writer(f)
         for key, value in pair_set.items():
@@ -51,47 +59,44 @@ def main():
 
 
 def cut_non_task_words(phrases):
-    description_token = tokenizer.tokenize(phrases)
-    tagged = nltk.pos_tag(description_token)
-    # Turn description into simplified tags (noun, verb, adjective, etc)
-    simplifiedTags = [(word, map_tag('en-ptb', 'universal', tag)) for word, tag in tagged]
-
     only_noun_verb = []
-    for (j, (word, tag)) in enumerate(simplifiedTags):
-        if tag == 'VERB' or tag == 'NOUN':
-            only_noun_verb.append([word, tag])
+    for phrase in phrases:
+        description_token = tokenizer.tokenize(phrase)
+        tagged = nltk.pos_tag(description_token)
+        # Turn description into simplified tags (noun, verb, adjective, etc)
+        simplifiedTags = [(word, map_tag('en-ptb', 'universal', tag)) for word, tag in tagged]
+
+        for (j, (word, tag)) in enumerate(simplifiedTags):
+            if tag == 'VERB' or tag == 'NOUN':
+                only_noun_verb.append([word, tag])
     return only_noun_verb
 
 
 def generate_all_noun_pairs(phrases):
     stemmer = nltk.stem.PorterStemmer()
     pair_set = {}
-    # TODO: Make concurrent
     for index, phrase in enumerate(phrases):
         print("Phrase #{} of {}".format(index, len(phrases)))
-        try:
-            # Dict of verb/noun pairs found in individual descriptions. {stem: readable}
-            only_noun_verb = cut_non_task_words(phrase)
+        # Dict of verb/noun pairs found in individual descriptions. {stem: readable}
+        only_noun_verb = cut_non_task_words(phrase)
 
-            for (k, (word, tag)) in enumerate(only_noun_verb):
-                if tag == 'VERB':
-                    next_index = k + 1
-                    while next_index < len(only_noun_verb) - 1:
-                        next_tuple = only_noun_verb[next_index]
-                        if next_tuple[1] == 'NOUN':
-                            stemmed_pair = stemmer.stem(word) + ' ' + stemmer.stem(next_tuple[0])
-                            if stemmed_pair not in pair_set.keys():
-                                pair_set[stemmed_pair] = {
-                                    'readable': word + ' ' + next_tuple[0],
-                                    'count': 1
-                                }
-                            else:
-                                pair_set[stemmed_pair]['count'] += 1
-                            break
+        for (k, (word, tag)) in enumerate(only_noun_verb):
+            if tag == 'VERB':
+                next_index = k + 1
+                while next_index < len(only_noun_verb) - 1:
+                    next_tuple = only_noun_verb[next_index]
+                    if next_tuple[1] == 'NOUN':
+                        stemmed_pair = stemmer.stem(word) + ' ' + stemmer.stem(next_tuple[0])
+                        if stemmed_pair not in pair_set.keys():
+                            pair_set[stemmed_pair] = {
+                                'readable': word + ' ' + next_tuple[0],
+                                'count': 1
+                            }
                         else:
-                            next_index += 1
-        except TypeError:
-            pass
+                            pair_set[stemmed_pair]['count'] += 1
+                        break
+                    else:
+                        next_index += 1
 
     return pair_set
 
