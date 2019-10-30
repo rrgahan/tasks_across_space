@@ -108,3 +108,4 @@ data/job_postings_large.csv
 .DS_Store
 output/.DS_Store
 */.DS_Store
+data/clean_esmi/

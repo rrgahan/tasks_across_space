@@ -1,10 +1,11 @@
 import boto3
+import concurrent.futures
 import csv
 import nltk
 import numpy as np
+import os
 import pandas as pd
 import time
-import concurrent.futures
 
 from bitarray import bitarray
 
@@ -26,22 +27,25 @@ def main():
     del tasks_csv
     t1 = time.time()
     print("Prepare tasks: {}".format(t1 - t0))
+    file_count = 0
+    for tsv in os.listdir("data/clean_esmi/"):
+        if tsv.endswith(".tsv"):
+            print(f"data/clean_esmi/{tsv}")
+            t_start = time.time()
+            postings = pd.read_csv(f"data/clean_esmi/{tsv}", encoding='latin-1', sep='\t')
+            postings = postings[postings['ad_length'].between(11, 841, inclusive=True)].reset_index(drop=True)
+            postings_ids = postings["posting_id"]
+            postings_descriptions = postings["description"]
+            del postings
 
-    postings = pd.read_csv('data/subset.csv', encoding='latin-1')
-    # TODO: Get min/max ad length values
-    postings = postings[postings['ad_length'].between(11, 841, inclusive=True)].reset_index(drop=True)
-    postings_ids = postings["posting_id"]
-    postings_descriptions = postings["description"]
-    del postings
-    t2 = time.time()
-    print("Load data: {}".format(t2 - t1))
-
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for posting_id, binary in zip(postings_ids, executor.map(generate_binary, postings_descriptions)):
-            # TODO: Make sure this file exists on server to write to
-            with open('output/binaries.csv', 'a') as f:
-                f.write("%s,%s\n" % (posting_id, binary.to01()))
-                f.close()
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                for posting_id, binary in zip(postings_ids, executor.map(generate_binary, postings_descriptions)):
+                    with open(f'output/binaries_{tsv}.csv', 'a+') as f:
+                        f.write("%s,%s\n" % (posting_id, binary.to01()))
+                        f.close()
+ 
+            print(f"File #{file_count}: {time.time() - t_start}")
+            file_count += 1
 
     # TODO: Make sure these buckets exists in S3
     # s3.meta.client.upload_file('output/binaries.csv', BUCKET_NAME, 'vectors_binary/output.csv')
