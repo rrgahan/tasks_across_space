@@ -40,16 +40,15 @@ def main():
 
             with concurrent.futures.ProcessPoolExecutor() as executor:
                 for posting_id, binary in zip(postings_ids, executor.map(generate_binary, postings_descriptions)):
-                    with open(f'output/binaries_{tsv}.csv', 'a+') as f:
-                        f.write("%s,%s\n" % (posting_id, binary.to01()))
+                    with open(f'output/binaries/binary_{tsv}.csv', 'a+') as f:
+                        f.write("%s,%s\n" % (posting_id, binary.to01())) 
                         f.close()
- 
+
             print(f"File #{file_count}: {time.time() - t_start}")
+            s3.meta.client.upload_file(f'output/binaries/binary_{tsv}.csv', BUCKET_NAME, f'vectors_binary/binaries_{tsv}.csv')
             file_count += 1
 
-    # TODO: Make sure these buckets exists in S3
-    # s3.meta.client.upload_file('output/binaries.csv', BUCKET_NAME, 'vectors_binary/output.csv')
-    # s3.meta.client.upload_file('output/tasks_used.csv', BUCKET_NAME, 'vectors_binary/tasks_used.csv')
+    s3.meta.client.upload_file('output/tasks_used.csv', BUCKET_NAME, 'vectors_binary/tasks_used.csv')
 
     tn = time.time()
     print("Total time: {}".format(tn - t0))
@@ -86,7 +85,7 @@ def create_possible_tasks(word_tag_pairs):
 
 def prepare_tasks(tasks_csv):
     # Number of tasks to keep
-    threshold = 1000
+    threshold = 2000
     tasks_list = list(tasks_csv.nlargest(threshold, "count").dropna().reset_index(drop=True)['task'])
     with open('output/tasks_used.csv', 'w') as f:
         wr = csv.writer(f, quoting=csv.QUOTE_ALL)
