@@ -16,17 +16,12 @@ clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
 def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
-    postings = pd.read_csv('data/subset.csv', encoding='latin-1')
-    postings = pd.read_csv('data/esmi_cleaned_0.tsv', encoding='latin-1', sep="\t")
+    postings = pd.read_csv('data/esmi_cleaned_0.tsv', encoding='latin-1', sep="\t", error_bad_lines=False)
     fail_count = 0
     for tsv in os.listdir("data/clean_esmi/"):
         if tsv.endswith(".tsv"):
             print(f"data/clean_esmi/{tsv}")
-            try:
-                postings.append(pd.read_csv(f"data/clean_esmi/{tsv}", encoding="latin-1", sep="\t"))
-            except pd.errors.ParserError:
-                fail_count += 1
-                print("ABOVE FILE FAILED FAILED")
+            postings.append(pd.read_csv(f"data/clean_esmi/{tsv}", encoding="latin-1", sep="\t"))
 
     print(f"{fail_count} files failed ({fail_count / 2335 * 100}%)")
 
@@ -53,7 +48,6 @@ def main():
             writer.writerow([value['readable'], value['count']])
 
     BUCKET_NAME = 'tasksacrossspace'
-    # s3.meta.client.upload_file(filename, BUCKET_NAME, 'tasks_five_percent.csv')
     tn = time.time()
     print("Total time: {}".format(tn - t0))
 
