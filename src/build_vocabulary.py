@@ -16,8 +16,6 @@ clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
 def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
-    # data = pd.read_csv('data/esmi_cleaned_0.tsv', encoding='latin-1', sep="\t", error_bad_lines=False)
-    # descriptions = data['description']
 
     for tsv in os.listdir("data/clean_esmi/"):
         if tsv.endswith(".tsv"):
