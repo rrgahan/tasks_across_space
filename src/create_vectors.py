@@ -32,7 +32,7 @@ def main():
         if tsv.endswith(".tsv"):
             print(f"data/clean_esmi/{tsv}")
             t_start = time.time()
-            postings = pd.read_csv(f"data/clean_esmi/{tsv}", encoding='latin-1', sep='\t')
+            postings = pd.read_csv(f"data/clean_esmi/{tsv}", encoding="latin-1", sep="\t", error_bad_lines=False, engine='python')
             postings = postings[postings['ad_length'].between(11, 841, inclusive=True)].reset_index(drop=True)
             postings_ids = postings["posting_id"]
             postings_descriptions = postings["description"]

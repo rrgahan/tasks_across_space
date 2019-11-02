@@ -16,54 +16,54 @@ clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
 def main():
     s3 = boto3.resource('s3')
     t0 = time.time()
-    postings = pd.read_csv('data/esmi_cleaned_0.tsv', encoding='latin-1', sep="\t", error_bad_lines=False)
-    fail_count = 0
+    # data = pd.read_csv('data/esmi_cleaned_0.tsv', encoding='latin-1', sep="\t", error_bad_lines=False)
+    # descriptions = data['description']
+
     for tsv in os.listdir("data/clean_esmi/"):
         if tsv.endswith(".tsv"):
             print(f"data/clean_esmi/{tsv}")
-            postings.append(pd.read_csv(f"data/clean_esmi/{tsv}", encoding="latin-1", sep="\t"))
+            data = pd.read_csv(f"data/clean_esmi/{tsv}", encoding="latin-1", sep="\t", error_bad_lines=False, engine='python')
+            descriptions = data['description']
 
-    print(f"{fail_count} files failed ({fail_count / 2335 * 100}%)")
+            phrases = []
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                for phrase in executor.map(get_relevant_phrases, descriptions):
+                    phrases.append(phrase)
 
-    descriptions = postings['description']
-    del postings
-    print("Get descriptions done")
+            del descriptions
+            print("Get phrases done")
 
-    phrases = []
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for phrase in executor.map(get_relevant_phrases, descriptions):
-            phrases.append(phrase)
+            pair_set = generate_all_noun_pairs(phrases)
+            del phrases
+            print("Get pairs done")
 
-    del descriptions
-    print("Get phrases done")
+            filename = 'output/esmi_tasks.csv'
+            with open(filename, 'a+') as f:
+                writer = csv.writer(f)
+                for key, value in pair_set.items():
+                    writer.writerow([key, value['readable'], value['count']])
+            del data
+            print("Get descriptions done")
 
-    pair_set = generate_all_noun_pairs(phrases)
-    del phrases
-    print("Get pairs done")
-
-    filename = 'output/esmi_tasks.csv'
-    with open(filename, 'w') as f:
-        writer = csv.writer(f)
-        for key, value in pair_set.items():
-            writer.writerow([value['readable'], value['count']])
-
-    BUCKET_NAME = 'tasksacrossspace'
     tn = time.time()
     print("Total time: {}".format(tn - t0))
 
 
 def cut_non_task_words(phrases):
     only_noun_verb = []
-    for phrase in phrases:
-        description_token = tokenizer.tokenize(phrase)
-        tagged = nltk.pos_tag(description_token)
-        # Turn description into simplified tags (noun, verb, adjective, etc)
-        simplifiedTags = [(word, map_tag('en-ptb', 'universal', tag)) for word, tag in tagged]
+    if phrases:
+        for phrase in phrases:
+            description_token = tokenizer.tokenize(phrase)
+            tagged = nltk.pos_tag(description_token)
+            # Turn description into simplified tags (noun, verb, adjective, etc)
+            simplifiedTags = [(word, map_tag('en-ptb', 'universal', tag)) for word, tag in tagged]
 
-        for (j, (word, tag)) in enumerate(simplifiedTags):
-            if tag == 'VERB' or tag == 'NOUN':
-                only_noun_verb.append([word, tag])
-    return only_noun_verb
+            for (j, (word, tag)) in enumerate(simplifiedTags):
+                if tag == 'VERB' or tag == 'NOUN':
+                    only_noun_verb.append([word, tag])
+        return only_noun_verb
+    else:
+        return []
 
 
 def generate_all_noun_pairs(phrases):
@@ -74,23 +74,24 @@ def generate_all_noun_pairs(phrases):
         # Dict of verb/noun pairs found in individual descriptions. {stem: readable}
         only_noun_verb = cut_non_task_words(phrase)
 
-        for (k, (word, tag)) in enumerate(only_noun_verb):
-            if tag == 'VERB':
-                next_index = k + 1
-                while next_index < len(only_noun_verb) - 1:
-                    next_tuple = only_noun_verb[next_index]
-                    if next_tuple[1] == 'NOUN':
-                        stemmed_pair = stemmer.stem(word) + ' ' + stemmer.stem(next_tuple[0])
-                        if stemmed_pair not in pair_set.keys():
-                            pair_set[stemmed_pair] = {
-                                'readable': word + ' ' + next_tuple[0],
-                                'count': 1
-                            }
+        if only_noun_verb:
+            for (k, (word, tag)) in enumerate(only_noun_verb):
+                if tag == 'VERB':
+                    next_index = k + 1
+                    while next_index < len(only_noun_verb) - 1:
+                        next_tuple = only_noun_verb[next_index]
+                        if next_tuple[1] == 'NOUN':
+                            stemmed_pair = stemmer.stem(word) + ' ' + stemmer.stem(next_tuple[0])
+                            if stemmed_pair not in pair_set.keys():
+                                pair_set[stemmed_pair] = {
+                                    'readable': word + ' ' + next_tuple[0],
+                                    'count': 1
+                                }
+                            else:
+                                pair_set[stemmed_pair]['count'] += 1
+                            break
                         else:
-                            pair_set[stemmed_pair]['count'] += 1
-                        break
-                    else:
-                        next_index += 1
+                            next_index += 1
 
     return pair_set
 
