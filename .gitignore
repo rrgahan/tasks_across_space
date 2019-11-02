@@ -109,3 +109,4 @@ data/job_postings_large.csv
 output/.DS_Store
 */.DS_Store
 data/clean_esmi/
+output/esmi_tasks.csv
