@@ -19,7 +19,7 @@ def main():
     s3 = boto3.resource('s3')
     BUCKET_NAME = 'tasksacrossspace'
 
-    tasks_csv = pd.read_csv('data/tasks_large.csv')
+    tasks_csv = pd.read_csv('output/combined_tasks.csv')
     tasks_csv.columns = ["task", "count"]
 
     t0 = time.time()
