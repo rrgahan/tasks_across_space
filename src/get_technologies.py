@@ -1,4 +1,8 @@
+import nltk
+from nltk.corpus import stopwords
 import pandas as pd
+
+tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
 
 
 def main():
@@ -17,7 +21,11 @@ def main():
         # Remove stop words? What are they? Any chance valid words would be removed?
         # Loop through each word, see if is in tech_data[technology]
 
-        for word in description.split():
+        stop_words = set(stopwords.words('english'))
+        tokens = tokenizer.tokenize(description)
+        description_tokens = [w for w in tokens if w not in stop_words]
+
+        for word in description_tokens:
             if word in tech_data['technology'].values:
                 base = tech_data['base'].values[tech_data['technology'] == word][0]
                 technologies_count.loc[technologies_count['technology'] == base, 'count'] += 1
