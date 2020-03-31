@@ -16,11 +16,6 @@ def main():
     del postings_data
 
     for description in descriptions:
-        # TODO: NLTK stuff
-        # Tokenize
-        # Remove stop words? What are they? Any chance valid words would be removed?
-        # Loop through each word, see if is in tech_data[technology]
-
         stop_words = set(stopwords.words('english'))
         tokens = tokenizer.tokenize(description)
         description_tokens = [w for w in tokens if w not in stop_words]
