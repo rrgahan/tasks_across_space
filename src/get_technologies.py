@@ -39,13 +39,13 @@ def main():
 
             with concurrent.futures.ProcessPoolExecutor() as executor:
                 for postings_id, binary in zip(postings_ids, executor.map(generate_binary, descriptions)):
-                    with open(f'output/technology_binaries/test.csv', 'a+') as f:
+                    with open(f'output/tech_binaries/binary_{tsv}.csv', 'a+') as f:
                         f.write("%s,%s\n" % (postings_id, binary.to01()))
                         f.close()
 
             print(f"File #{file_count}: {time.time() - t_start}")
-            s3.meta.client.upload_file(f'output/binaries/binary_{tsv}.csv', BUCKET_NAME,
-                                       f'vectors_binary/binaries_{tsv}.csv')
+            s3.meta.client.upload_file(f'output/tech_binaries/binary_{tsv}.csv', BUCKET_NAME,
+                                       f'tech_vectors_binary/binaries_{tsv}.csv')
             file_count += 1
 
 
