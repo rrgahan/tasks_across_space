@@ -9,7 +9,7 @@ import concurrent.futures
 from collections import Counter, OrderedDict
 from nltk.tag import map_tag
 
-
+stemmer = nltk.stem.PorterStemmer()
 tokenizer = nltk.tokenize.RegexpTokenizer(r'\w+')
 clue_words = ['duties', 'responsibilities', 'summary', 'tasks', 'functions']
 
@@ -50,15 +50,15 @@ def main():
 def cut_non_task_words(phrases):
     only_noun_verb = []
     if phrases:
-        for phrase in phrases:
-            description_token = tokenizer.tokenize(phrase)
-            tagged = nltk.pos_tag(description_token)
-            # Turn description into simplified tags (noun, verb, adjective, etc)
-            simplifiedTags = [(word, map_tag('en-ptb', 'universal', tag)) for word, tag in tagged]
+        # for phrase in phrases.split():
+        description_token = tokenizer.tokenize(phrases)
+        tagged = nltk.pos_tag(description_token)
+        # Turn description into simplified tags (noun, verb, adjective, etc)
+        simplified_tags = [(word, map_tag('en-ptb', 'universal', tag)) for word, tag in tagged]
 
-            for (j, (word, tag)) in enumerate(simplifiedTags):
-                if tag == 'VERB' or tag == 'NOUN':
-                    only_noun_verb.append([word, tag])
+        for (j, (word, tag)) in enumerate(simplified_tags):
+            if tag == 'VERB' or tag == 'NOUN':
+                only_noun_verb.append([word, tag])
         return only_noun_verb
     else:
         return []
@@ -110,6 +110,19 @@ def get_relevant_phrases(description):
 
     except AttributeError:
         pass
+
+
+def prepare_tasks():
+    # Number of tasks to keep
+    tasks_csv = pd.read_csv('output/combined_tasks.csv')
+    tasks_csv.columns = ["task", "count"]
+    threshold = 2000
+    tasks_list = list(tasks_csv.nlargest(threshold, "count").dropna().reset_index(drop=True)['task'])
+    with open('output/tasks_used.csv', 'w') as f:
+        wr = csv.writer(f, quoting=csv.QUOTE_ALL)
+        wr.writerow(tasks_list)
+    defined_task_stems = [stemmer.stem(t.split(' ')[0]) + ' ' + stemmer.stem(t.split(' ')[1]) for t in tasks_list]
+    return defined_task_stems
 
 
 if __name__ == "__main__":
